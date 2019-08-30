@@ -73,13 +73,25 @@
         android:layout_height="wrap_content" />
 
     <SeekBar
-        android:id="@+id/seekBar"
+        android:id="@+id/sbBright"
         android:layout_width="300dp"
+        android:tooltipText="bright"
         android:layout_height="wrap_content"
         android:layout_centerHorizontal="true"
         android:layout_above="@+id/control"
         android:layout_marginBottom="10dp"
         android:max="100"
         android:progress="50" />
+
+    <SeekBar
+        android:id="@+id/sbZoom"
+        android:tooltipText="zoom"
+        android:layout_width="300dp"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_above="@+id/control"
+        android:layout_marginBottom="50dp"
+        android:max="10"
+        android:progress="0" />
 
 </RelativeLayout>

@@ -25,7 +25,7 @@ public class LuminosityAnalyzer {
                 total += ((int) aByte) & 0xff;
             }
             double luma = total/(double)data.length;
-            Log.d("MyTag", String.format("luminosity=%f",luma));
+            //Log.d("MyTag", String.format("luminosity=%f",luma));
             this.lastAnalyzedTimestamp = currentTimestamp;
         }
     }

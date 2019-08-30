@@ -136,6 +136,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
      * still image is ready to be saved.
      */
     private val onImageAvailableListener = ImageReader.OnImageAvailableListener {
+        Log.d(TAG,"onImageAvailableListener")
         //bgroundHandler?.post(ImageSaver(it.acquireNextImage(), file))
 
         val image = it.acquireLatestImage()
@@ -197,42 +198,74 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
      */
     private val captureCallback = object : CameraCaptureSession.CaptureCallback() {
 
+        //Session 요청 처리 결과
+        override fun onCaptureProgressed(
+            session: CameraCaptureSession,
+            request: CaptureRequest,
+            partialResult: CaptureResult
+        ) {
+            process(partialResult)
+        }
+
+        //Capture 완료
+        override fun onCaptureCompleted(
+            session: CameraCaptureSession,
+            request: CaptureRequest,
+            result: TotalCaptureResult
+        ) {
+            process(result)
+        }
+
         private fun process(result: CaptureResult) {
 
             //face detect
             val mode = result.get(CaptureResult.STATISTICS_FACE_DETECT_MODE)
             val faces = result.get(CaptureResult.STATISTICS_FACES)
             if(faces != null && mode != null)
-                Log.e("face", "faces : " + faces.size + " , mode : " + mode)
+            //Log.e("face", "faces : " + faces.size + " , mode : " + mode)
 
-            when (state) {
-                STATE_PREVIEW -> Unit // Do nothing when the camera preview is working normally.
-                STATE_WAITING_LOCK -> capturePicture(result)
-                STATE_WAITING_PRECAPTURE -> {
-                    // CONTROL_AE_STATE can be null on some devices
-                    val aeState = result.get(CaptureResult.CONTROL_AE_STATE)
-                    if (aeState == null ||
-                        aeState == CaptureResult.CONTROL_AE_STATE_PRECAPTURE ||
-                        aeState == CaptureRequest.CONTROL_AE_STATE_FLASH_REQUIRED
-                    ) {
-                        state = STATE_WAITING_NON_PRECAPTURE
+                when (state) {
+                    STATE_PREVIEW -> Unit // Do nothing when the camera preview is working normally.
+                    STATE_WAITING_LOCK -> {
+                        Log.e(TAG, "STATE_WAITING_LOCK")
+                        capturePicture(result)
+                    }
+                    STATE_WAITING_PRECAPTURE -> { // CONTROL_AE_STATE can be null on some devices
+                        Log.e(TAG, "STATE_WAITING_PRECAPTURE")
+                        val aeState = result.get(CaptureResult.CONTROL_AE_STATE)
+                        Log.d(TAG,"aeState : $aeState")
+                        if (aeState == null ||
+                            aeState == CaptureResult.CONTROL_AE_STATE_PRECAPTURE || // 5
+                            aeState == CaptureRequest.CONTROL_AE_STATE_FLASH_REQUIRED // 4
+                        ) {
+                            state = STATE_WAITING_NON_PRECAPTURE
+                        }
+                    }
+                    STATE_WAITING_NON_PRECAPTURE -> { // CONTROL_AE_STATE can be null on some devices
+                        Log.e(TAG, "STATE_WAITING_NON_PRECAPTURE")
+                        val aeState = result.get(CaptureResult.CONTROL_AE_STATE)
+                        Log.d(TAG,"aeState : $aeState")
+                        if (aeState == null || aeState != CaptureResult.CONTROL_AE_STATE_PRECAPTURE) // 5
+                        {
+                            state = STATE_PICTURE_TAKEN
+                            captureStillPicture()
+                        }
+                        //TODO 예외 코드 적용
+                        else {
+                            Log.e(TAG,"captureStillPicture 강제 적용")
+                            state = STATE_PICTURE_TAKEN
+                            captureStillPicture()
+                        }
                     }
                 }
-                STATE_WAITING_NON_PRECAPTURE -> {
-                    // CONTROL_AE_STATE can be null on some devices
-                    val aeState = result.get(CaptureResult.CONTROL_AE_STATE)
-                    Log.d("aeState","aeState : $aeState")
-                    if (aeState == null || aeState != CaptureResult.CONTROL_AE_STATE_PRECAPTURE) {
-                        state = STATE_PICTURE_TAKEN
-                        captureStillPicture()
-                    }
-                }
-            }
         }
 
         private fun capturePicture(result: CaptureResult) {
+            Log.e(TAG,"capturePicture")
+
             val afState = result.get(CaptureResult.CONTROL_AF_STATE)
-            Log.d("afState","afState : $afState")
+            Log.d(TAG,"afState : $afState")
+
             if (afState == null) {
                 captureStillPicture()
             } else if (afState == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED // 4
@@ -240,7 +273,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
             ) {
                 // CONTROL_AE_STATE can be null on some devices
                 val aeState = result.get(CaptureResult.CONTROL_AE_STATE)
-                Log.d("aeState","aeState : $aeState")
+                Log.d(TAG,"aeState : $aeState")
 
                 if (aeState == null || aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED // 2
                 ) {
@@ -251,23 +284,6 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
                 }
             }
         }
-
-        override fun onCaptureProgressed(
-            session: CameraCaptureSession,
-            request: CaptureRequest,
-            partialResult: CaptureResult
-        ) {
-            process(partialResult)
-        }
-
-        override fun onCaptureCompleted(
-            session: CameraCaptureSession,
-            request: CaptureRequest,
-            result: TotalCaptureResult
-        ) {
-            process(result)
-        }
-
     }
 
     override fun onCreateView(
@@ -282,9 +298,24 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
         view.findViewById<View>(R.id.info).setOnClickListener(this)
 
         //밝기 조절
-        seekBar!!.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+        sbBright!!.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 setBrightness(progress)
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {
+                //
+            }
+
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                //
+            }
+
+        })
+
+        sbZoom!!.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                setZoom(progress)
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar?) {
@@ -507,6 +538,10 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
                 val faceDetectModes = characteristics.get(CameraCharacteristics.STATISTICS_INFO_AVAILABLE_FACE_DETECT_MODES)
                 Log.e(TAG, "faceDetectModes : ${Arrays.toString(faceDetectModes)}")
 
+                //Zoom
+                val maxZoom = characteristics.get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM)
+                Log.e(TAG, "maxZoom : $maxZoom")
+
                 this.cameraId = cameraId
 
                 // We've found a viable camera and finished setting up member variables,
@@ -636,7 +671,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
     private val previewCallback = ImageReader.OnImageAvailableListener {
         val image = it.acquireLatestImage()
         luminosityAnalyzer.analyze(image)
-        image.close()
+        image?.close()
     }
 
     /**
@@ -696,7 +731,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
 
             // Here, we create a CameraCaptureSession for camera preview.
             cameraDevice?.createCaptureSession(
-                Arrays.asList(surface, imageReader?.surface, imageProcessingReader.surface),
+                Arrays.asList(surface, imageReader?.surface, imageProcessingReader?.surface),
                 //Collections.singletonList(surface),
                 object : CameraCaptureSession.StateCallback() {
 
@@ -716,7 +751,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
                             // Flash is automatically enabled when necessary.
                             setAutoFlash(previewRequestBuilder)
 
-                            // Change Effect mode
+                            // Change effect mode when necessary.
                             /*previewRequestBuilder.set(
                                 CaptureRequest.CONTROL_EFFECT_MODE,
                                 CaptureRequest.CONTROL_EFFECT_MODE_SEPIA
@@ -787,6 +822,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
      * Lock the focus as the first step for a still image capture.
      */
     private fun lockFocus() {
+        Log.d(TAG,"lockFocus")
         try {
             // This is how to tell the camera to lock focus.
             previewRequestBuilder.set(
@@ -833,6 +869,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
      * [.captureCallback] from both [.lockFocus].
      */
     private fun captureStillPicture() {
+        Log.d(TAG,"captureStillPicture")
         try {
             if (activity == null || cameraDevice == null) return
             val rotation = activity.windowManager.defaultDisplay.rotation
@@ -857,7 +894,13 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
                     CaptureRequest.CONTROL_AF_MODE,
                     CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE
                 )
-            }?.also { setAutoFlash(it) }
+
+                /**
+                 * 여기다가 set capture request 를 적용해 주어야 반영된다
+                 * 근데 왜 bright 값은 그냥 반영이 될까?
+                 */
+
+            }?.also { switchFlash(it) }
 
             val captureCallback = object : CameraCaptureSession.CaptureCallback() {
 
@@ -894,17 +937,24 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
                 CaptureRequest.CONTROL_AF_TRIGGER,
                 CameraMetadata.CONTROL_AF_TRIGGER_CANCEL
             )
-            setAutoFlash(previewRequestBuilder)
+
+            //setAutoFlash(previewRequestBuilder)
+
             captureSession?.capture(
                 previewRequestBuilder.build(), captureCallback,
                 backgroundHandler
             )
-            // After this, the camera will go back to the normal state of preview.
+
             state = STATE_PREVIEW
             captureSession?.setRepeatingRequest(
-                previewRequest, captureCallback,
+                previewRequestBuilder.build(), captureCallback,
                 backgroundHandler
             )
+            // After this, the camera will go back to the normal state of preview.
+            /*captureSession?.setRepeatingRequest(
+                previewRequest, captureCallback,
+                backgroundHandler
+            )*/
         } catch (e: CameraAccessException) {
             Log.e(TAG, e.toString())
         }
@@ -913,7 +963,10 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
 
     override fun onClick(view: View) {
         when (view.id) {
-            R.id.flash -> switchFlash()
+            R.id.flash -> {
+                flashMode++
+                switchFlash(previewRequestBuilder)
+            }
             R.id.picture -> lockFocus()
             R.id.info -> {
                 if (activity != null) {
@@ -945,11 +998,46 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
         val brightness =
             (minCompensationRange + (maxCompensationRange - minCompensationRange) * (value / 100f)).toInt()
         previewRequestBuilder.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, brightness)
-        previewRequest = previewRequestBuilder.build()
 
         Log.e("brightness", "brightness : $brightness")
-        applySettings()
+
+        captureSession?.setRepeatingRequest(
+            previewRequestBuilder.build(),
+            captureCallback,
+            backgroundHandler
+        )
     }
+
+    /**
+     * 줌 조절
+     */
+    private fun setZoom(value: Int) {
+
+        //if max zoom 8.0
+        val manager = activity.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        val characteristics = manager.getCameraCharacteristics(cameraId)
+
+        val maxZoom = characteristics.get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM)
+        val m = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
+
+        val width = m.width()
+        val height = m.height()
+
+        val scaleWidth = width / 20 * value
+        val scaleHeight = height / 20 * value
+        Log.d("zoom","scaleWidth : $scaleWidth , scaleHeight : $scaleHeight")
+
+        val zoom = Rect(scaleWidth, scaleHeight, width - scaleWidth, height - scaleHeight)
+        previewRequestBuilder.set(CaptureRequest.SCALER_CROP_REGION, zoom)
+
+
+        captureSession?.setRepeatingRequest(
+            previewRequestBuilder.build(),
+            captureCallback,
+            backgroundHandler
+        )
+    }
+
 
     /**
      * 플래시 수동 조작
@@ -959,17 +1047,15 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
      * auto: based on the exposure conditions, let the system choose wether fire the flash or not
      * torch: keep the flash on when I'm using the camera, even without any picture taken
      */
-    private var flashMode = 0
+    private var flashMode = 3
 
-    private fun switchFlash() {
+    private fun switchFlash(requestBuilder: CaptureRequest.Builder) {
         if (flashSupported) {
-
-            flashMode++
 
             when (flashMode) {
                 1 -> //on
                 {
-                    previewRequestBuilder.set(
+                    requestBuilder.set(
                         CaptureRequest.CONTROL_AE_MODE,
                         CaptureRequest.CONTROL_AE_MODE_ON_ALWAYS_FLASH
                     )
@@ -978,50 +1064,39 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
 
                 2 -> //off
                 {
-                    previewRequestBuilder.set(
+                    requestBuilder.set(
                         CaptureRequest.CONTROL_AE_MODE,
                         CaptureRequest.CONTROL_AE_MODE_ON
-                    )
-                    previewRequestBuilder.set(
-                        CaptureRequest.FLASH_MODE,
-                        CaptureRequest.FLASH_MODE_OFF
                     )
                     activity.showToast("off")
                 }
 
-                3 -> //auto
+                else -> //auto
                 {
-                    previewRequestBuilder.set(
+                    requestBuilder.set(
                         CaptureRequest.CONTROL_AE_MODE,
                         CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH
                     )
                     activity.showToast("auto")
-                }
-
-                4 -> //torch
-                {
-                    previewRequestBuilder.set(
-                        CaptureRequest.CONTROL_AE_MODE,
-                        CaptureRequest.CONTROL_AE_MODE_ON
-                    )
-                    previewRequestBuilder.set(
-                        CaptureRequest.FLASH_MODE,
-                        CaptureRequest.FLASH_MODE_TORCH
-                    )
-
-                    activity.showToast("torch")
                     flashMode = 0
                 }
             }
 
-            previewRequest = previewRequestBuilder.build()
-            applySettings()
+            /**
+             * set repeat 이후에 적용 됨
+             * 변경 시 플래시가 깜빡임(?)
+             */
+            captureSession?.capture(
+                requestBuilder.build(),
+                captureCallback,
+                backgroundHandler
+            )
         }
     }
 
-    private fun applySettings() {
-        captureSession?.setRepeatingRequest(previewRequest, captureCallback, backgroundHandler)
-    }
+    /**
+     *
+     */
 
     companion object {
 

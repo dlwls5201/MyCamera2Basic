@@ -198,6 +198,13 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
     private val captureCallback = object : CameraCaptureSession.CaptureCallback() {
 
         private fun process(result: CaptureResult) {
+
+            //face detect
+            val mode = result.get(CaptureResult.STATISTICS_FACE_DETECT_MODE)
+            val faces = result.get(CaptureResult.STATISTICS_FACES)
+            if(faces != null && mode != null)
+                Log.e("face", "faces : " + faces.size + " , mode : " + mode)
+
             when (state) {
                 STATE_PREVIEW -> Unit // Do nothing when the camera preview is working normally.
                 STATE_WAITING_LOCK -> capturePicture(result)
@@ -496,6 +503,10 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
                     characteristics.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE)
                 Log.e(TAG, "compensationRange : $compensationRange")
 
+                //Face detection
+                val faceDetectModes = characteristics.get(CameraCharacteristics.STATISTICS_INFO_AVAILABLE_FACE_DETECT_MODES)
+                Log.e(TAG, "faceDetectModes : ${Arrays.toString(faceDetectModes)}")
+
                 this.cameraId = cameraId
 
                 // We've found a viable camera and finished setting up member variables,
@@ -673,6 +684,14 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
             imageProcessingReader.setOnImageAvailableListener(previewCallback, backgroundHandler)
             /**
              * LuminosityAnalyzer end
+             */
+
+            /**
+             * FaceDetect start
+             */
+            previewRequestBuilder.set(CaptureRequest.STATISTICS_FACE_DETECT_MODE, CameraMetadata.STATISTICS_FACE_DETECT_MODE_SIMPLE)
+            /**
+             * FaceDetect end
              */
 
             // Here, we create a CameraCaptureSession for camera preview.

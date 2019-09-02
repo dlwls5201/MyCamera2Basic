@@ -313,6 +313,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
 
         })
 
+        //줌 조절
         sbZoom!!.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 setZoom(progress)
